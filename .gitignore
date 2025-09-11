@@ -1,0 +1,16 @@
+.vscode
+*.o
+*.bin
+*.map
+*.8xp
+
+*.src
+*.bc
+*.d
+
+orig
+
+cons
+tool
+
+.DS_Store
