@@ -19,6 +19,16 @@
 
 gfx_UninitedSprite(sBallSpr, BALL_WIDTH, BALL_HEIGHT);
 
+static inline void ballInit(void) {
+    sBallSpr->width = BALL_WIDTH;
+    sBallSpr->height = BALL_HEIGHT;
+
+    int pixelCount = BALL_WIDTH * BALL_HEIGHT;
+    for (int i = 0; i < pixelCount; i++) {
+        sBallSpr->data[i] = BALL_IND[i];
+    }
+}
+
 static inline void bgDraw(void) {
     // Draw the gray BG
     gfx_FillScreen(1);
@@ -87,11 +97,6 @@ static inline void bgDraw(void) {
 
 }
 
-static inline void paletteUpdate(void) {
-    gfx_SetPalette(BALL_PAL, BALL_PAL_len, 0);
-    gfx_SetTransparentColor(0);
-}
-
 static inline void ballDraw(int x, int y) {
     int trueX = (BALL_WIDTH / 2) + x;
     int trueY = (BALL_HEIGHT / 2) - y - 20;
@@ -99,14 +104,13 @@ static inline void ballDraw(int x, int y) {
     gfx_TransparentSprite(sBallSpr, trueX, trueY);
 }
 
-int main(void) {
-    sBallSpr->width = BALL_WIDTH;
-    sBallSpr->height = BALL_HEIGHT;
+static inline void paletteUpdate(void) {
+    gfx_SetPalette(BALL_PAL, BALL_PAL_len, 0);
+    gfx_SetTransparentColor(0);
+}
 
-    int pixelCount = BALL_WIDTH * BALL_HEIGHT;
-    for (int i = 0; i < pixelCount; i++) {
-        sBallSpr->data[i] = BALL_IND[i];
-    }
+int main(void) {
+    ballInit();
 
     gfx_Begin();
     gfx_SetDrawBuffer();
@@ -118,7 +122,7 @@ int main(void) {
     int scrollX = 1;
     int scrollY = -1;
 
-    // Offset by one to skip transparent color at 0.
+    // Offset by one to skip transparent color at index 0.
     uint16_t *ballColoring = ((uint16_t *)BALL_PAL) + 1;
 
     do {
@@ -171,7 +175,7 @@ int main(void) {
         paletteUpdate();
 
         posX += scrollX * ANIME_SPEED;
-        if (posX <= -60 || posX >= 95)
+        if (posX <= -55 || posX >= 95)
             scrollX = -scrollX;
 
         int scrollYFact;
