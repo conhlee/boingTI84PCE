@@ -7,8 +7,8 @@ ICON = icon.png
 DESCRIPTION = "port of AMIGA 'boing' demo"
 COMPRESSED = YES
 
-CFLAGS = -Wall -Wextra -Oz
-CXXFLAGS = -Wall -Wextra -Oz
+CFLAGS = -Wall -Wextra -Ofast
+CXXFLAGS = -Wall -Wextra -Ofast
 
 # ----------------------------
 
