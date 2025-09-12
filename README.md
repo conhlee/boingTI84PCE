@@ -1,4 +1,4 @@
-# boingTI84P
+# boingTI84PCE
 
 A faithful port of the AMIGA Boing Ball demo for the TI-84 Plus CE calculator series.
 
