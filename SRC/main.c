@@ -49,7 +49,7 @@ static inline void ballUpdate(void) {
     // Offset by one to skip transparent color at index 0.
     uint16_t *palette = ((uint16_t *)BALL_PAL) + 1;
 
-    sBall.colorCycle += (sBall.scrollX > 0) ? -1 : 1;
+    sBall.colorCycle += ((sBall.scrollX > 0) ? -1 : 1) * ANIME_SPEED;
 
     if (sBall.colorCycle < 0)
         sBall.colorCycle = 13;
