@@ -17,16 +17,106 @@
 // The frame rate is a little slow, so we ramp up the speed to 2x to account for it.
 #define ANIME_SPEED (2)
 
-gfx_UninitedSprite(sBallSpr, BALL_WIDTH, BALL_HEIGHT);
+typedef struct {
+    short posX, posY;
+    short scrollX, scrollY;
+    short colorCycle;
+
+    union {
+        gfx_sprite_t spr;
+        uint8_t sprData[sizeof(gfx_sprite_t) + (BALL_WIDTH * BALL_HEIGHT)];
+    };
+} BallState;
+static BallState sBall;
 
 static inline void ballInit(void) {
-    sBallSpr->width = BALL_WIDTH;
-    sBallSpr->height = BALL_HEIGHT;
+    sBall.spr.width = BALL_WIDTH;
+    sBall.spr.height = BALL_HEIGHT;
 
     int pixelCount = BALL_WIDTH * BALL_HEIGHT;
     for (int i = 0; i < pixelCount; i++) {
-        sBallSpr->data[i] = BALL_IND[i];
+        sBall.spr.data[i] = BALL_IND[i];
     }
+
+    sBall.posX = 0;
+    sBall.posY = 0;
+    sBall.scrollX = 1;
+    sBall.scrollY = -1;
+    sBall.colorCycle = 2;
+}
+
+static inline void ballUpdate(void) {
+    // Offset by one to skip transparent color at index 0.
+    uint16_t *palette = ((uint16_t *)BALL_PAL) + 1;
+
+    sBall.colorCycle += (sBall.scrollX > 0) ? -1 : 1;
+
+    if (sBall.colorCycle < 0)
+        sBall.colorCycle = 13;
+    else if (sBall.colorCycle > 13)
+        sBall.colorCycle = 0;
+
+    for (int i = 0; i < 7; i++) {
+        if ((sBall.colorCycle + i) < 14) {
+            palette[sBall.colorCycle + i + 2] = gfx_RGBTo1555(255, 255, 255);
+            palette[sBall.colorCycle + i + 18] = gfx_RGBTo1555(255, 255, 255);
+        }
+        else {
+            palette[sBall.colorCycle + i - 12] = gfx_RGBTo1555(255, 255, 255);
+            palette[sBall.colorCycle + i + 4] = gfx_RGBTo1555(255, 255, 255);
+        }
+    }
+    for (int i = 7; i < 14; i++) {
+        if ((sBall.colorCycle + i) < 14) {
+            palette[sBall.colorCycle + i + 2] = gfx_RGBTo1555(255, 0, 0);
+            palette[sBall.colorCycle + i + 18] = gfx_RGBTo1555(255, 0, 0);
+        }
+        else {
+            palette[sBall.colorCycle + i - 12] = gfx_RGBTo1555(255, 0, 0);
+            palette[sBall.colorCycle + i + 4] = gfx_RGBTo1555(255, 0, 0);
+        }
+    }
+
+    if (sBall.scrollX > 0) {
+        palette[sBall.colorCycle + 2] = gfx_RGBTo1555(255, 221, 221);
+        palette[sBall.colorCycle + 18] = gfx_RGBTo1555(255, 221, 221);
+    }
+    else {
+        if ((sBall.colorCycle + 6) < 14) {
+            palette[sBall.colorCycle + 8] = gfx_RGBTo1555(255, 221, 221);
+            palette[sBall.colorCycle + 24] = gfx_RGBTo1555(255, 221, 221);
+        }
+        else {
+            palette[sBall.colorCycle - 6] = gfx_RGBTo1555(255, 221, 221);
+            palette[sBall.colorCycle + 10] = gfx_RGBTo1555(255, 221, 221);
+        }
+    }
+
+    sBall.posX += sBall.scrollX * ANIME_SPEED;
+    if (sBall.posX <= -55 || sBall.posX >= 100)
+        sBall.scrollX = -sBall.scrollX;
+
+    short scrollYFact;
+    if (sBall.posY > -10)
+        scrollYFact = 1;
+    else if (sBall.posY > -30)
+        scrollYFact = 2;
+    else if (sBall.posY > -60)
+        scrollYFact = 3;
+    else
+        scrollYFact = 4;
+
+    sBall.posY += sBall.scrollY * scrollYFact * ANIME_SPEED;
+
+    if (sBall.posY <= -100 || sBall.posY >= 0)
+        sBall.scrollY = -sBall.scrollY;
+}
+
+static inline void ballDraw(void) {
+    int x = (BALL_WIDTH / 2) + sBall.posX;
+    int y = (BALL_HEIGHT / 2) - sBall.posY - 20;
+
+    gfx_TransparentSprite(&sBall.spr, x, y);
 }
 
 static inline void bgDraw(void) {
@@ -46,17 +136,11 @@ static inline void bgDraw(void) {
 #define SCALE_Y(y) ((int)((int)(y) * (GFX_LCD_HEIGHT) / 216))
 
     for (int j = 48; j < 300; j += 16) {
-        gfx_Line_NoClip(
-            SCALE_X(j), SCALE_Y(0),
-            SCALE_X(j), SCALE_Y(192)
-        );
+        gfx_VertLine_NoClip(SCALE_X(j), SCALE_Y(0), SCALE_Y(192));
     }
 
     for (int j = 0; j < 200; j += 16) {
-        gfx_Line_NoClip(
-            SCALE_X(48), SCALE_Y(j),
-            SCALE_X(288), SCALE_Y(j)
-        );
+        gfx_HorizLine_NoClip(SCALE_X(48), SCALE_Y(j), SCALE_X(288) - SCALE_X(48));
     }
 
     for (int j = 48, k = 20; j < 300; j += 16, k += 20) {
@@ -66,30 +150,15 @@ static inline void bgDraw(void) {
         );
     }
 
-    gfx_Line_NoClip(
-        SCALE_X(45), SCALE_Y(194),
-        SCALE_X(291), SCALE_Y(194)
-    );
+    gfx_HorizLine_NoClip(SCALE_X(45), SCALE_Y(194), SCALE_X(291) - SCALE_X(45) + 1);
 
-    gfx_Line_NoClip(
-        SCALE_X(41), SCALE_Y(197),
-        SCALE_X(295), SCALE_Y(197)
-    );
+    gfx_HorizLine_NoClip(SCALE_X(41), SCALE_Y(197), SCALE_X(295) - SCALE_X(41) + 1);
 
-    gfx_Line_NoClip(
-        SCALE_X(37), SCALE_Y(201),
-        SCALE_X(300), SCALE_Y(201)
-    );
+    gfx_HorizLine_NoClip(SCALE_X(37), SCALE_Y(201), SCALE_X(300) - SCALE_X(37) + 1);
 
-    gfx_Line_NoClip(
-        SCALE_X(30), SCALE_Y(207),
-        SCALE_X(308), SCALE_Y(207)
-    );
+    gfx_HorizLine_NoClip(SCALE_X(30), SCALE_Y(207), SCALE_X(308) - SCALE_X(30) + 1);
 
-    gfx_Line_NoClip(
-        SCALE_X(20), SCALE_Y(215),
-        SCALE_X(319), SCALE_Y(215)
-    );
+    gfx_HorizLine_NoClip(SCALE_X(20), SCALE_Y(215), SCALE_X(319) - SCALE_X(20) + 1);
 
 // Don't need these anymore!
 #undef SCALE_X
@@ -97,14 +166,7 @@ static inline void bgDraw(void) {
 
 }
 
-static inline void ballDraw(int x, int y) {
-    int trueX = (BALL_WIDTH / 2) + x;
-    int trueY = (BALL_HEIGHT / 2) - y - 20;
-
-    gfx_TransparentSprite(sBallSpr, trueX, trueY);
-}
-
-static inline void paletteUpdate(void) {
+static inline void syncPalette(void) {
     gfx_SetPalette(BALL_PAL, BALL_PAL_len, 0);
     gfx_SetTransparentColor(0);
 }
@@ -115,90 +177,16 @@ int main(void) {
     gfx_Begin();
     gfx_SetDrawBuffer();
 
-    int colorCycle = 2;
-
-    int posX = 0;
-    int posY = 0;
-    int scrollX = 1;
-    int scrollY = -1;
-
-    // Offset by one to skip transparent color at index 0.
-    uint16_t *ballColoring = ((uint16_t *)BALL_PAL) + 1;
-
     do {
-        if (scrollX > 0)
-            colorCycle--;
-        else
-            colorCycle++;
+        ballUpdate();
 
-        if (colorCycle < 0)
-            colorCycle = 13;
-        else if (colorCycle > 13)
-            colorCycle = 0;
-
-        for (int i = 0; i < 7; i++) {
-            if ((colorCycle + i) < 14) {
-                ballColoring[colorCycle + i + 2] = gfx_RGBTo1555(255, 255, 255);
-                ballColoring[colorCycle + i + 18] = gfx_RGBTo1555(255, 255, 255);
-            }
-            else {
-                ballColoring[colorCycle + i - 12] = gfx_RGBTo1555(255, 255, 255);
-                ballColoring[colorCycle + i + 4] = gfx_RGBTo1555(255, 255, 255);
-            }
-        }
-        for (int i = 7; i < 14; i++) {
-            if ((colorCycle + i) < 14) {
-                ballColoring[colorCycle + i + 2] = gfx_RGBTo1555(255, 0, 0);
-                ballColoring[colorCycle + i + 18] = gfx_RGBTo1555(255, 0, 0);
-            }
-            else {
-                ballColoring[colorCycle + i - 12] = gfx_RGBTo1555(255, 0, 0);
-                ballColoring[colorCycle + i + 4] = gfx_RGBTo1555(255, 0, 0);
-            }
-        }
-    
-        if (scrollX > 0) {
-            ballColoring[colorCycle + 2] = gfx_RGBTo1555(255, 221, 221);
-            ballColoring[colorCycle + 18] = gfx_RGBTo1555(255, 221, 221);
-        }
-        else {
-            if ((colorCycle + 6) < 14) {
-                ballColoring[colorCycle + 8] = gfx_RGBTo1555(255, 221, 221);
-                ballColoring[colorCycle + 24] = gfx_RGBTo1555(255, 221, 221);
-            }
-            else {
-                ballColoring[colorCycle - 6] = gfx_RGBTo1555(255, 221, 221);
-                ballColoring[colorCycle + 10] = gfx_RGBTo1555(255, 221, 221);
-            }
-        }
-
-        paletteUpdate();
-
-        posX += scrollX * ANIME_SPEED;
-        if (posX <= -55 || posX >= 95)
-            scrollX = -scrollX;
-
-        int scrollYFact;
-        if (posY > -10)
-            scrollYFact = 1;
-        else if (posY > -30)
-            scrollYFact = 2;
-        else if (posY > -60)
-            scrollYFact = 3;
-        else
-            scrollYFact = 4;
-
-        posY += scrollY * scrollYFact * ANIME_SPEED;
-
-        if (posY <= -100 || posY >= 0)
-            scrollY = -scrollY;
+        syncPalette();
 
         bgDraw();
+        ballDraw();
 
-        ballDraw(posX, posY);
-
-        gfx_BlitBuffer();
-    } while (!os_GetCSC());
+        gfx_SwapDraw();
+    } while (os_GetCSC() == 0);
 
     gfx_End();
 
